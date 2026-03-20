@@ -157,6 +157,7 @@ window.addEventListener('message', async event => {
 
     if (message.command === 'updateImage') {
         await updateImageContent(message.data);
+        setLoading(false)
         attachFigureResizeObserver();
     }
 

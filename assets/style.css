@@ -104,12 +104,30 @@ h1, h2 {
     box-sizing: border-box; /* Include border in height calculation */
 }
 
-#imageSection {
+#imageSection { 
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
     height: 50%;
-    width:100%;
+    width: 100%;
+}
+
+#imageLoadingOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--bg) 70%, transparent);
+  z-index: 5;
+}
+
+#imageLoadingOverlay[hidden] { display: none; }
+
+#imageLoadingOverlay .codicon {
+  font-size: 28px;
+  color: var(--fg);
 }
 
 #imageDiv {

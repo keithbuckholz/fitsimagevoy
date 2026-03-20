@@ -67,8 +67,8 @@ var CustomEditorProvider = class {
     const webviewUri = webviewPanel.webview.asWebviewUri(vscode.Uri.joinPath(this._context.extensionUri, "dist/webview.js"));
     const appIconUri = webviewPanel.webview.asWebviewUri(vscode.Uri.joinPath(this._context.extensionUri, "assets/images/appIcon.png"));
     const kipacLogoUri = webviewPanel.webview.asWebviewUri(vscode.Uri.joinPath(this._context.extensionUri, "assets/images/KIPAC_stack.png"));
-    const codiconsUri = webviewPanel.webview.asWebviewUri(vscode.Uri.joinPath(this._context.extensionUri, "node_modules/vscode/codicons/dist/codicon.css"));
-    const codiconsFontUri = webviewPanel.webview.asWebviewUri(vscode.Uri.joinPath(this._context.extensionUri, "node_modules", "vscode/codicons", "dist", "codicon.ttf"));
+    const codiconsUri = webviewPanel.webview.asWebviewUri(vscode.Uri.joinPath(this._context.extensionUri, "node_modules/@vscode/codicons/dist/codicon.css"));
+    const codiconsFontUri = webviewPanel.webview.asWebviewUri(vscode.Uri.joinPath(this._context.extensionUri, "node_modules", "@vscode/codicons", "dist", "codicon.ttf"));
     const randomBytes2 = crypto.randomBytes(16);
     const nonce = randomBytes2.toString("base64");
     const isImage = document.file[`hdu${document.selectedHdu}`].encoded_image;
@@ -81,6 +81,7 @@ var CustomEditorProvider = class {
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
                         <title>Your Custom Editor</title>
             <link href="${stylePath}" rel="stylesheet" type="text/css" >
+            <link href="${codiconsUri}" rel="stylesheet" type="text/css">
         </head>
         <body>
             <!-- Header Section -->
@@ -134,6 +135,9 @@ var CustomEditorProvider = class {
                 
                 <!-- Image Section -->
                 <div id="imageSection">
+                    <div id="imageLoadingOverlay" hidden>
+                        <span class="codicon codicon-loading codicon-modifier-spin"></span>
+                    </div>
                     <div id="imageDiv" class="responsive-plot">
                         ${isImage ? document.file[selected].html_plot : ""}
                     </div>
@@ -146,8 +150,16 @@ var CustomEditorProvider = class {
             <script>
                 const vscode = acquireVsCodeApi();
 
+                // Update overlay when image is loading
+                function setLoading(isLoading) {
+                    const overlay = document.getElementById('imageLoadingOverlay');
+                    if (!overlay) return;
+                    overlay.hidden = !isLoading;
+                }
+
                 // Update the color value in the options
                 function updateColor(event) {
+                    setLoading(true);
                     // Post a message to VS Code
                     vscode.postMessage({
                         command: 'colormapChanged',
@@ -157,6 +169,7 @@ var CustomEditorProvider = class {
 
                 // Update the scale value in the options
                 function updateScale(event) {
+                    setLoading(true);
                     // Post a message to VS Code
                     vscode.postMessage({
                         command: 'scaleChanged',
