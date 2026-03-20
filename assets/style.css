@@ -8,7 +8,31 @@ body {
     width: 100vw;
     margin-top: 0px; /* Remove default margin to ensure full width */
     padding: 0;
+  --bg: #ffffff;
+  --fg: #111111;
+  --muted: #666666;
+  --border: #ddd;
+  --header-bg: #f0f0f0;
+  --footer-bg: #fcfafa;
+  --row-bg: #ffffff;
+  --row-alt: #fbfbfb;
+  --link: #007acc;
+  background: var(--bg);
+  color: var(--fg);
 }
+
+body.vscode-dark {
+  --bg: #1e1e1e;
+  --fg: #d4d4d4;
+  --muted: #9a9a9a;
+  --border: #333333;
+  --header-bg: #252526;
+  --footer-bg: #1f1f1f;
+  --row-bg: #1e1e1e;
+  --row-alt: #2a2a2a;
+  --link: #3794ff;
+}
+
 h1, h2 {
     text-align: left;
 }
@@ -72,7 +96,7 @@ h1, h2 {
 #headerInfo {
     flex: 1;
     overflow-y: auto; /* Enable vertical scrolling if content overflows */
-    border: 1px solid #ddd; /* Add a border for visibility, you can remove this */
+    border: 1px solid var(--border); /* Add a border for visibility, you can remove this */
     box-sizing: border-box; /* Include border in height calculation */
 }
 
@@ -105,18 +129,18 @@ h1, h2 {
 
 .column-header {
     font-size:16px; /* Set your desired font size */
-    color: black;
+    color: var(--fg);
     font-weight: semi-bold; /* Set your desired font weight */
 }
 .sticky-header {
-    background-color: #f0f0f0; /* Set your desired background color */
+    background-color: var(--header-bg); /* Set your desired background color */
 }
 vscode-data-grid-row:not([row-type="sticky-header"]) {
-    background-color: #ffffff; /* Set the background color for non-header rows */
+    background-color: var(--row-bg); /* Set the background color for non-header rows */
 }
 
 vscode-data-grid-row:not([row-type="sticky-header"]):nth-child(even) {
-    background-color:  #fbfbfb; /* Set the background color for even rows */
+    background-color:  var(--row-alt); /* Set the background color for even rows */
 }
 
 vscode-data-grid-cell:not([cell-type="columnheader"]):first-child {
@@ -153,9 +177,9 @@ footer {
     justify-content: space-between;
     align-items: center;
     overflow: hidden;
-    background-color: #fcfafa; /* Set a light background color */
+    background-color: var(--footer-bg); /* Set a light background color */
     text-align: center;
-    border-top: 2px solid #ccc; 
+    border-top: 2px solid var(--border); 
 }
 
 #footerContainer {
@@ -185,11 +209,11 @@ footer {
 #footerText p {
     margin: 0;
     font-size: 11px;
-    color: #333; /* Set the text color */
+    color: var(--muted); /* Set the text color */
 }
 
 #footerText a {
-    color: #007acc; /* Set the link color */
+    color: var(--link); /* Set the link color */
     text-decoration: none;
     font-weight: bold;
 }
@@ -207,8 +231,8 @@ footer {
     overflow: hidden;
     width:100%;
     height: 10%;
-    background-color: #fcfafa; /* Set a very faint gray background color */
-    border-bottom: 1px solid #ccc; /* Set a bottom border */
+    background-color: var(--footer-bg); /* Set a very faint gray background color */
+    border-bottom: 1px solid var(--border); /* Set a bottom border */
 }
 
 #headerContent {

@@ -223,6 +223,26 @@ class CustomEditorProvider implements vscode.CustomReadonlyEditorProvider {
         // Set the webview for the document
         await this.setWebviewForDocument(document, webviewPanel);
 
+        const darkKinds = [
+            vscode.ColorThemeKind.Dark,
+            vscode.ColorThemeKind.HighContrast
+        ];
+
+        // Send user theme info to webviewPanel
+        function updateTheme() {
+          webviewPanel.webview.postMessage({
+            command: 'updateTheme',
+            data: darkKinds.includes(vscode.window.activeColorTheme.kind)
+          });
+        }
+        
+        // send initial theme
+        updateTheme();
+
+        // update when the user changes theme
+        const themeListener = vscode.window.onDidChangeActiveColorTheme(() => updateTheme());
+        webviewPanel.onDidDispose(() => themeListener.dispose());
+
         // Handle messages from the webview
         webviewPanel.webview.onDidReceiveMessage(
             async message => {

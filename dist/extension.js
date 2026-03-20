@@ -203,6 +203,19 @@ var CustomEditorProvider = class {
     };
     await document.open();
     await this.setWebviewForDocument(document, webviewPanel);
+    const darkKinds = [
+      vscode.ColorThemeKind.Dark,
+      vscode.ColorThemeKind.HighContrast
+    ];
+    function updateTheme() {
+      webviewPanel.webview.postMessage({
+        command: "updateTheme",
+        data: darkKinds.includes(vscode.window.activeColorTheme.kind)
+      });
+    }
+    updateTheme();
+    const themeListener = vscode.window.onDidChangeActiveColorTheme(() => updateTheme());
+    webviewPanel.onDidDispose(() => themeListener.dispose());
     webviewPanel.webview.onDidReceiveMessage(
       async (message) => {
         switch (message.command) {

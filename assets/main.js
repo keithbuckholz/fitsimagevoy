@@ -142,6 +142,11 @@ window.addEventListener('message', async event => {
         await updateImageContent(message.data);
         adjustScale();
     }
+
+    if (message.command === 'updateTheme') {
+        await updateTheme(message.data);
+        adjustScale()
+    }
 });
 
 // Define the updateImageContent function
@@ -215,4 +220,9 @@ function handleSearch(searchInput) {
             row.style.display = 'none';
         }
     });
+}
+
+function updateTheme(isDark) {
+    document.body.classList.toggle('vscode-dark', !!isDark)
+    document.body.classList.toggle('vscode-light', !isDark)
 }
