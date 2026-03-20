@@ -124,7 +124,7 @@ def generate_file(fits_file, colormap, scale):
                     plt.colorbar(orientation='horizontal', format="{x:.1e}")
 
                     # Add tag with image options
-                    caption = f"{colormap} - {scale}"
+                    caption = f"loaded image options: ( {colormap} - {scale} )"
                     ax = plt.gca()
                     ax.text(0.5, -0.1, caption,
                             transform=ax.transAxes,

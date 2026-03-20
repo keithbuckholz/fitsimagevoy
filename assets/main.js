@@ -3,6 +3,8 @@
 // It uses the vscode namespace to enable communication via postMessage()
 // It uses the acquireVsCodeApi() function to get a reference to VS Code
 
+let figureResizeObserver = null;
+
 async function updateHeaderInfo(data) {
     /**
      * This function updated the header info section of the webview
@@ -104,6 +106,21 @@ async function updateHeaderInfo(data) {
     return;
 }
 
+function attachFigureResizeObserver() {
+    const figure = document.querySelector('#imageDiv .mpld3-figure');
+    if (!figure) return;
+
+    if (figureResizeObserver) {
+        figureResizeObserver.disconnect();
+    }
+
+    figureResizeObserver = new ResizeObserver(() => {
+        adjustScale()
+    })
+
+    figureResizeObserver.observe(figure);
+    adjustScale()
+}
 
 function adjustScale() {
     // Adjust the scale of the image to fit the webview
@@ -135,17 +152,17 @@ window.addEventListener('message', async event => {
     
     if (message.command === 'updateHeaderInfo') {
         await updateHeaderInfo(message.data);
-        adjustScale();
+        attachFigureResizeObserver();
     }
 
     if (message.command === 'updateImage') {
         await updateImageContent(message.data);
-        adjustScale();
+        attachFigureResizeObserver();
     }
 
     if (message.command === 'updateTheme') {
         await updateTheme(message.data);
-        adjustScale()
+        attachFigureResizeObserver()
     }
 });
 
