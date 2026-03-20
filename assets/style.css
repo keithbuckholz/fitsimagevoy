@@ -125,6 +125,24 @@ h1, h2 {
     justify-content: center;
     margin-right: 10px;
     margin-top: 0px;
+    .mpld3-axis text,
+    .mpld3-xaxis text,
+    .mpld3-yaxis text,
+    .mpld3-xaxis line,
+    .mpld3-yaxis line,
+    .mpld3-title,
+    .mpld3-text {
+        fill: var(--fg) !important;
+        stroke: var(--fg) !important;
+    }
+    /* #container, */
+    .mpld3-toolbar {
+        transform: scale(2);
+        transform-origin: top left;
+        filter: 
+            drop-shadow(0 0 10px var(--fg))
+            brightness(1.25) contrast(1.35);
+    }
 }
 
 .column-header {

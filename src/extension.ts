@@ -360,7 +360,7 @@ class CustomDocument implements vscode.CustomDocument {
          * @returns void
          */
         
-        this._file = await this.generateImageFromFits(this._uri.fsPath, this._options['colormap'], this._options['scale'], darkKinds.includes(vscode.window.activeColorTheme.kind));
+        this._file = await this.generateImageFromFits(this._uri.fsPath, this._options['colormap'], this._options['scale']);
 
         // Initialize a variable to store the selected element
         this._selectedHdu = 0;
@@ -376,7 +376,7 @@ class CustomDocument implements vscode.CustomDocument {
         }
     }
 
-    async generateImageFromFits(fitsFilePath: string, colormap: string, scale: string, darkTheme: boolean): Promise<any> {
+    async generateImageFromFits(fitsFilePath: string, colormap: string, scale: string): Promise<any> {
         /**
          * This function reads a FITS file and returns the image data, headers and html.
          * It connects with python to run this process.
@@ -405,7 +405,7 @@ class CustomDocument implements vscode.CustomDocument {
             const pythonScriptPath = path.join(__dirname, 'python', 'generate_image.py');
             const combinedCommand = `
                 ${activationCommand} > /dev/null 2>&1 &&
-                ${command} ${pythonScriptPath} "${fitsFilePath}" ${colormap} ${scale} ${darkTheme}
+                ${command} ${pythonScriptPath} "${fitsFilePath}" ${colormap} ${scale}
             `;
 
             // Combine activation and Python commands

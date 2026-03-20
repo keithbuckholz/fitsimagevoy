@@ -59,7 +59,7 @@ def format_func(value, string):
     
     return formatted_str
 
-def generate_file(fits_file, colormap, scale, dark_theme):
+def generate_file(fits_file, colormap, scale):
     """Read fits file and return headers and a Matplotlib plot
     
     Parameters
@@ -80,23 +80,6 @@ def generate_file(fits_file, colormap, scale, dark_theme):
 
     """
     result = {}
-
-    if dark_theme:
-        c = "white"
-        mpl.rcParams.update({"text.color": c, 
-                             "axes.labelcolor": c, 
-                             "axes.edgecolor": c, 
-                             "axes.titlecolor": c, 
-                             "xtick.color": c, 
-                             "ytick.color": c})
-    else:
-        c = "black"
-        mpl.rcParams.update({"text.color": c, 
-                             "axes.labelcolor": c, 
-                             "axes.edgecolor": c, 
-                             "axes.titlecolor": c, 
-                             "xtick.color": c, 
-                             "ytick.color": c})
     
     with fits.open(fits_file, ignore_missing_simple=True) as hdul:
         for i, hdu in enumerate(hdul):
@@ -140,15 +123,20 @@ def generate_file(fits_file, colormap, scale, dark_theme):
 
                     plt.colorbar(orientation='horizontal', format="{x:.1e}")
 
+                    # Add tag with image options
                     caption = f"{colormap} - {scale}"
                     ax = plt.gca()
                     ax.text(0.5, -0.1, caption,
                             transform=ax.transAxes,
                             ha='center', va='top',
                             fontsize=14)
-
-                    # Generate the HTML code for the plot
+                    
+                    # Make figure background translucent (general theme compatability)
                     fig = plt.gcf()
+                    fig.patch.set_alpha(0.0)
+                    ax.set_facecolor("none")
+                    
+                    # Generate the HTML code for the plot
                     html_plot = mpld3.fig_to_html(fig, figid="mpld3Figure2")
                     plt.close()
 
@@ -179,22 +167,17 @@ def generate_file(fits_file, colormap, scale, dark_theme):
 
 if __name__ == "__main__":
     # Check if the correct number of command-line arguments is provided
-    if len(sys.argv) != 5:
+    if len(sys.argv) != 4:
         print("Usage: python generate_image.py <fits_file>")
         sys.exit(1)
 
     fits_file = sys.argv[1]
     colormap = sys.argv[2]
     scale = sys.argv[3]
-    dark_theme_str = sys.argv[4]
-
-    dark_theme = False
-    if dark_theme_str.lower() in ("true", "1", "t", "yes", "y"):
-        dark_theme = True
 
     try:
         # Call the function and get the encoded image
-        file = generate_file(fits_file, colormap, scale, dark_theme)
+        file = generate_file(fits_file, colormap, scale)
         print(file)
     except Exception as e:
         print(f"Error: {e}")

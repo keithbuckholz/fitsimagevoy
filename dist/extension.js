@@ -40,6 +40,10 @@ var import_child_process = require("child_process");
 var osvar = process.platform;
 var path = require("path");
 var requirements = path.join(__dirname, "python/requirements.txt");
+var darkKinds = [
+  vscode.ColorThemeKind.Dark,
+  vscode.ColorThemeKind.HighContrast
+];
 var CustomEditorProvider = class {
   constructor(_context) {
     this._context = _context;
@@ -203,10 +207,6 @@ var CustomEditorProvider = class {
     };
     await document.open();
     await this.setWebviewForDocument(document, webviewPanel);
-    const darkKinds = [
-      vscode.ColorThemeKind.Dark,
-      vscode.ColorThemeKind.HighContrast
-    ];
     function updateTheme() {
       webviewPanel.webview.postMessage({
         command: "updateTheme",
