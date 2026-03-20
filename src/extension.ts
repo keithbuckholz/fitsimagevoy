@@ -10,6 +10,10 @@ const osvar = process.platform;
 const path = require("path");
 const requirements = path.join(__dirname, "python/requirements.txt");
 
+const darkKinds = [
+    vscode.ColorThemeKind.Dark,
+    vscode.ColorThemeKind.HighContrast
+];
 
 // Implement the CustomTextEditorProvider interface
 class CustomEditorProvider implements vscode.CustomReadonlyEditorProvider {
@@ -223,11 +227,6 @@ class CustomEditorProvider implements vscode.CustomReadonlyEditorProvider {
         // Set the webview for the document
         await this.setWebviewForDocument(document, webviewPanel);
 
-        const darkKinds = [
-            vscode.ColorThemeKind.Dark,
-            vscode.ColorThemeKind.HighContrast
-        ];
-
         // Send user theme info to webviewPanel
         function updateTheme() {
           webviewPanel.webview.postMessage({
@@ -361,7 +360,7 @@ class CustomDocument implements vscode.CustomDocument {
          * @returns void
          */
         
-        this._file = await this.generateImageFromFits(this._uri.fsPath, this._options['colormap'], this._options['scale']);
+        this._file = await this.generateImageFromFits(this._uri.fsPath, this._options['colormap'], this._options['scale'], darkKinds.includes(vscode.window.activeColorTheme.kind));
 
         // Initialize a variable to store the selected element
         this._selectedHdu = 0;
@@ -377,7 +376,7 @@ class CustomDocument implements vscode.CustomDocument {
         }
     }
 
-    async generateImageFromFits(fitsFilePath: string, colormap: string, scale: string): Promise<any> {
+    async generateImageFromFits(fitsFilePath: string, colormap: string, scale: string, darkTheme: boolean): Promise<any> {
         /**
          * This function reads a FITS file and returns the image data, headers and html.
          * It connects with python to run this process.
@@ -406,7 +405,7 @@ class CustomDocument implements vscode.CustomDocument {
             const pythonScriptPath = path.join(__dirname, 'python', 'generate_image.py');
             const combinedCommand = `
                 ${activationCommand} > /dev/null 2>&1 &&
-                ${command} ${pythonScriptPath} "${fitsFilePath}" ${colormap} ${scale}
+                ${command} ${pythonScriptPath} "${fitsFilePath}" ${colormap} ${scale} ${darkTheme}
             `;
 
             // Combine activation and Python commands
