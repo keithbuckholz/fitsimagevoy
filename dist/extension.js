@@ -40,10 +40,6 @@ var import_child_process = require("child_process");
 var osvar = process.platform;
 var path = require("path");
 var requirements = path.join(__dirname, "python/requirements.txt");
-var darkKinds = [
-  vscode.ColorThemeKind.Dark,
-  vscode.ColorThemeKind.HighContrast
-];
 var CustomEditorProvider = class {
   constructor(_context) {
     this._context = _context;
@@ -207,15 +203,44 @@ var CustomEditorProvider = class {
     };
     await document.open();
     await this.setWebviewForDocument(document, webviewPanel);
+    const darkKinds = [
+      vscode.ColorThemeKind.Dark,
+      vscode.ColorThemeKind.HighContrast
+    ];
     function updateTheme() {
       webviewPanel.webview.postMessage({
         command: "updateTheme",
         data: darkKinds.includes(vscode.window.activeColorTheme.kind)
       });
     }
-    updateTheme();
     const themeListener = vscode.window.onDidChangeActiveColorTheme(() => updateTheme());
     webviewPanel.onDidDispose(() => themeListener.dispose());
+    const COALESCE_MS = 150;
+    let coalesceTimer;
+    let latestRenderRequestId = 0;
+    const buildImagePayload = () => JSON.stringify({
+      file: document.file,
+      selectedHdu: document.selectedHdu,
+      options: document.options
+    });
+    const scheduleImageRender = () => {
+      latestRenderRequestId += 1;
+      const requestId = latestRenderRequestId;
+      if (coalesceTimer) {
+        clearTimeout(coalesceTimer);
+      }
+      coalesceTimer = setTimeout(async () => {
+        coalesceTimer = void 0;
+        await document.open();
+        if (requestId !== latestRenderRequestId) {
+          return;
+        }
+        await webviewPanel.webview.postMessage({
+          command: "updateImage",
+          data: buildImagePayload()
+        });
+      }, COALESCE_MS);
+    };
     webviewPanel.webview.onDidReceiveMessage(
       async (message) => {
         switch (message.command) {
@@ -224,6 +249,7 @@ var CustomEditorProvider = class {
             await this.setWebviewForDocument(document, webviewPanel);
             break;
           case "doneLoading":
+            updateTheme();
             const documentDataJson = JSON.stringify({
               file: document.file,
               selectedHdu: document.selectedHdu,
@@ -236,27 +262,11 @@ var CustomEditorProvider = class {
             break;
           case "colormapChanged":
             document.options.colormap = message.newColormap;
-            await document.open();
-            webviewPanel.webview.postMessage({
-              command: "updateImage",
-              data: JSON.stringify({
-                file: document.file,
-                selectedHdu: document.selectedHdu,
-                options: document.options
-              })
-            });
+            scheduleImageRender();
             break;
           case "scaleChanged":
             document.options.scale = message.newScale;
-            await document.open();
-            webviewPanel.webview.postMessage({
-              command: "updateImage",
-              data: JSON.stringify({
-                file: document.file,
-                selectedHdu: document.selectedHdu,
-                options: document.options
-              })
-            });
+            scheduleImageRender();
             break;
         }
       },

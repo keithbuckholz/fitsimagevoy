@@ -10,10 +10,6 @@ const osvar = process.platform;
 const path = require("path");
 const requirements = path.join(__dirname, "python/requirements.txt");
 
-const darkKinds = [
-    vscode.ColorThemeKind.Dark,
-    vscode.ColorThemeKind.HighContrast
-];
 
 // Implement the CustomTextEditorProvider interface
 class CustomEditorProvider implements vscode.CustomReadonlyEditorProvider {
@@ -227,6 +223,12 @@ class CustomEditorProvider implements vscode.CustomReadonlyEditorProvider {
         // Set the webview for the document
         await this.setWebviewForDocument(document, webviewPanel);
 
+        // Definition for "Dark VSCode Themes"
+        const darkKinds = [
+            vscode.ColorThemeKind.Dark,
+            vscode.ColorThemeKind.HighContrast
+        ];
+
         // Send user theme info to webviewPanel
         function updateTheme() {
           webviewPanel.webview.postMessage({
@@ -234,13 +236,47 @@ class CustomEditorProvider implements vscode.CustomReadonlyEditorProvider {
             data: darkKinds.includes(vscode.window.activeColorTheme.kind)
           });
         }
-        
-        // send initial theme
-        updateTheme();
+    
 
         // update when the user changes theme
         const themeListener = vscode.window.onDidChangeActiveColorTheme(() => updateTheme());
         webviewPanel.onDidDispose(() => themeListener.dispose());
+
+        // Setup for render only last image options
+        const COALESCE_MS = 150;
+        let coalesceTimer: NodeJS.Timeout | undefined;
+        let latestRenderRequestId = 0;
+
+        const buildImagePayload = () =>
+            JSON.stringify({
+                file: document.file,
+                selectedHdu: document.selectedHdu,
+                options: document.options
+            });
+
+        const scheduleImageRender = () => {
+            latestRenderRequestId += 1;
+            const requestId = latestRenderRequestId;
+
+            if (coalesceTimer) {
+                clearTimeout(coalesceTimer);
+            }
+
+            coalesceTimer = setTimeout(async () => {
+                coalesceTimer = undefined;
+
+                await document.open();
+
+                if (requestId !== latestRenderRequestId) {
+                    return; // Stale request, drop it
+                }
+
+                await webviewPanel.webview.postMessage({
+                    command: 'updateImage',
+                    data: buildImagePayload(),
+                });
+            }, COALESCE_MS);
+        }
 
         // Handle messages from the webview
         webviewPanel.webview.onDidReceiveMessage(
@@ -252,6 +288,9 @@ class CustomEditorProvider implements vscode.CustomReadonlyEditorProvider {
                         await this.setWebviewForDocument(document, webviewPanel);
                         break;
                     case 'doneLoading':
+
+                        updateTheme();
+
                         const documentDataJson = JSON.stringify({
                             file: document.file,
                             selectedHdu: document.selectedHdu,
@@ -267,31 +306,15 @@ class CustomEditorProvider implements vscode.CustomReadonlyEditorProvider {
                     case 'colormapChanged':
                         document.options.colormap = message.newColormap;
 
-                        await document.open();
+                        scheduleImageRender(); 
 
-                        webviewPanel.webview.postMessage({ 
-                            command: 'updateImage', 
-                            data: JSON.stringify({
-                                file: document.file,
-                                selectedHdu: document.selectedHdu,
-                                options: document.options,
-                            })
-                        });
                         break;
                     // Handle scale change
                     case 'scaleChanged':
                         document.options.scale = message.newScale;
 
-                        await document.open();
+                        scheduleImageRender();
 
-                        webviewPanel.webview.postMessage({ 
-                            command: 'updateImage', 
-                            data: JSON.stringify({
-                                file: document.file,
-                                selectedHdu: document.selectedHdu,
-                                options: document.options,
-                            })
-                        });
                         break;
                 }
             },
