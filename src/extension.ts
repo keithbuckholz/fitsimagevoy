@@ -10,6 +10,7 @@ const osvar = process.platform;
 const path = require("path");
 const requirements = path.join(__dirname, "python/requirements.txt");
 
+type Clim = { vmin: number | null; vmax: number | null };
 
 // Implement the CustomTextEditorProvider interface
 class CustomEditorProvider implements vscode.CustomReadonlyEditorProvider {
@@ -515,7 +516,7 @@ class CustomDocument implements vscode.CustomDocument {
         }
     }
 
-    async generateImageFromFits(fitsFilePath: string, colormap: string, scale: string, clim: Object): Promise<any> {
+    async generateImageFromFits(fitsFilePath: string, colormap: string, scale: string, clim: Clim): Promise<any> {
         /**
          * This function reads a FITS file and returns the image data, headers and html.
          * It connects with python to run this process.
