@@ -117,6 +117,10 @@ var CustomEditorProvider = class {
 
                         <vscode-radio-group id="scaleSelector"></vscode-radio-group>
 
+                        <vscode-divider role="presentation"></vscode-divider>
+                        
+                        <div id="climInput" style="display: flex; gap: 8px;"></div>
+
                     </div>
 
                     <div class="section-divider vertical" data-resize="optionsSection|headerInfoSection"></div>
@@ -165,7 +169,7 @@ var CustomEditorProvider = class {
                     // Post a message to VS Code
                     vscode.postMessage({
                         command: 'colormapChanged',
-                        newColormap: event
+                        newColormap: event,
                     });
                 }
 
@@ -175,7 +179,88 @@ var CustomEditorProvider = class {
                     // Post a message to VS Code
                     vscode.postMessage({
                         command: 'scaleChanged',
-                        newScale: event
+                        newScale: event,
+                        newClim: { vmin: null, vmax: null } // tells backend to use auto/matplotlib defaults
+                    });
+                }
+                
+                // Validate number pattern using regex
+                const numberPattern = /^[+-]?(?:\\d+\\.?\\d*|\\.\\d+)(?:[eE][+-]?\\d+)?$/;
+
+                function parseValidNumber(text) {
+                    if (!numberPattern.test(text)) return null;
+                    const n = Number(text);
+                    return Number.isFinite(n) ? n : null;
+                }
+
+                function validateNumbers() {
+
+                    const vminEl = document.getElementById('vmin');
+                    const vmaxEl = document.getElementById('vmax');
+
+                    const vminRaw = vminEl.value.trim();
+                    const vmaxRaw = vmaxEl.value.trim();
+
+                    const vmin = vminRaw === '' ? null : parseValidNumber(vminRaw);
+                    const vmax = vmaxRaw === '' ? null : parseValidNumber(vmaxRaw);
+
+                    const vminHasValue = vminRaw !== '';
+                    const vmaxHasValue = vmaxRaw !== '';
+
+                    let vminInvalid = vminHasValue && vmin === null;
+                    let vmaxInvalid = vmaxHasValue && vmax === null;
+
+                    const bothValidNumbers = vmin !== null && vmax !== null;
+                    const rangeInvalid = bothValidNumbers && !(vmin < vmax);
+
+                    if (rangeInvalid) {
+                        vminInvalid = true;
+                        vmaxInvalid = true;
+                    }
+
+                    const applyInvalid = (el, isInvalid) => {
+                        el.toggleAttribute('invalid', isInvalid);
+                        if (isInvalid) {
+                            el.setAttribute('aria-invalid', 'true');
+                        } else {
+                            el.removeAttribute('aria-invalid');
+                        }
+                    };
+
+                    applyInvalid(vminEl, vminInvalid);
+                    applyInvalid(vmaxEl, vmaxInvalid);
+
+                    if (!bothValidNumbers || rangeInvalid) return;
+
+                    return {vmin, vmax};
+                }
+
+                // Update the clim value in the options
+                function updateClim() {
+
+                    const clim = validateNumbers()
+
+                    if (!clim) return;
+
+                    // If number are valid, update as usual
+                    setLoading(true);
+                    // Post a message to VS Code
+                    vscode.postMessage({
+                       command: 'climChanged',
+                       newClim: clim
+                    });
+                }
+
+                function resetClim() {
+                    const vminEl = document.getElementById('vmin');
+                    const vmaxEl = document.getElementById('vmax');
+                    if (vminEl) vminEl.value = '';
+                    if (vmaxEl) vmaxEl.value = '';
+                    
+                    setLoading(true);
+                    vscode.postMessage({
+                        command: 'climReset',
+                        newClim: { vmin: null, vmax: null } // tells backend to use auto/matplotlib defaults
                     });
                 }
 
@@ -238,7 +323,7 @@ var CustomEditorProvider = class {
       selectedHdu: document.selectedHdu,
       options: document.options
     });
-    const scheduleImageRender = () => {
+    const scheduleImageRender = (reason) => {
       latestRenderRequestId += 1;
       const requestId = latestRenderRequestId;
       if (coalesceTimer) {
@@ -252,7 +337,8 @@ var CustomEditorProvider = class {
         }
         await webviewPanel.webview.postMessage({
           command: "updateImage",
-          data: buildImagePayload()
+          data: buildImagePayload(),
+          reason
         });
       }, COALESCE_MS);
     };
@@ -265,23 +351,27 @@ var CustomEditorProvider = class {
             break;
           case "doneLoading":
             updateTheme();
-            const documentDataJson = JSON.stringify({
-              file: document.file,
-              selectedHdu: document.selectedHdu,
-              options: document.options
-            });
             await webviewPanel.webview.postMessage({
               command: "updateHeaderInfo",
-              data: documentDataJson
+              data: buildImagePayload()
             });
             break;
           case "colormapChanged":
             document.options.colormap = message.newColormap;
-            scheduleImageRender();
+            scheduleImageRender(message.command);
             break;
           case "scaleChanged":
             document.options.scale = message.newScale;
-            scheduleImageRender();
+            document.options.clim = message.newClim;
+            scheduleImageRender(message.command);
+            break;
+          case "climChanged":
+            document.options.clim = message.newClim;
+            scheduleImageRender(message.command);
+            break;
+          case "climReset":
+            document.options.clim = message.newClim;
+            scheduleImageRender(message.command);
             break;
         }
       },
@@ -305,9 +395,11 @@ var CustomDocument = class {
     const configuration = vscode.workspace.getConfiguration("fitsimagevoy");
     const defaultColormap = configuration.get("defaultColormap", "viridis");
     const defaultScale = configuration.get("defaultScale", "linear");
+    const defaultClim = configuration.get("defaultClim", { vmin: null, vmax: null });
     this.options = {
       "colormap": defaultColormap,
-      "scale": defaultScale
+      "scale": defaultScale,
+      "clim": defaultClim
     };
   }
   get uri() {
@@ -333,7 +425,7 @@ var CustomDocument = class {
   }
   // Implement the open method to load the header
   async open() {
-    this._file = await this.generateImageFromFits(this._uri.fsPath, this._options["colormap"], this._options["scale"]);
+    this._file = await this.generateImageFromFits(this._uri.fsPath, this._options["colormap"], this._options["scale"], this._options["clim"]);
     this._selectedHdu = 0;
     for (const key in this._file) {
       const element = this._file[key];
@@ -343,7 +435,7 @@ var CustomDocument = class {
       }
     }
   }
-  async generateImageFromFits(fitsFilePath, colormap, scale) {
+  async generateImageFromFits(fitsFilePath, colormap, scale, clim) {
     return new Promise((resolve, reject) => {
       const pythonInterpreterPath = vscode.workspace.getConfiguration("python").get("defaultInterpreterPath");
       let command = "";
@@ -352,11 +444,13 @@ var CustomDocument = class {
       } else {
         command = pythonInterpreterPath;
       }
+      const climArgs = ["vmin", "vmax"].flatMap((k) => clim?.[k] === null ? [] : [`--${k}`, String(clim?.[k])]);
+      const climArgsStr = climArgs.map((s) => JSON.stringify(s)).join(" ");
       const activationCommand = "";
       const pythonScriptPath = path.join(__dirname, "python", "generate_image.py");
       const combinedCommand = `
                 ${activationCommand} > /dev/null 2>&1 &&
-                ${command} ${pythonScriptPath} "${fitsFilePath}" ${colormap} ${scale}
+                ${command} ${pythonScriptPath} "${fitsFilePath}" ${colormap} ${scale} ${climArgsStr}
             `;
       const pythonProcess = (0, import_child_process.spawn)("bash", ["-c", combinedCommand]);
       let result = "";

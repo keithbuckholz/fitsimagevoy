@@ -15,7 +15,7 @@ async function updateHeaderInfo(data) {
      * This function updated the header info section of the webview
      * It updates the selectable options for the HDU, colormap, and scale.
      * 
-     * @param {string} data - JSON stringified object containing the file, selectedHdu, and options
+     * @param {string} data - JSON stringified object containing the file, selectedHdu, options, and vmin/vmax (clim)
      * 
      * @returns {void} 
      */
@@ -32,6 +32,7 @@ async function updateHeaderInfo(data) {
     const hduSelector = document.getElementById('hduSelector');
     const colorSelector = document.getElementById('colorSelector');
     const scaleSelector = document.getElementById('scaleSelector');
+    const climInput = document.getElementById('climInput');
     const searchInput = document.getElementById('input');
 
     // Parse the data
@@ -78,6 +79,19 @@ async function updateHeaderInfo(data) {
     }).join('');
     scaleSelector.innerHTML = `<label slot="label">Scale</label>${scaleOptions}`;
     // -------- End of scale selector -------- //
+
+    // -------- Begin clim input -------- //
+    const renderedClim = file[`hdu${selectedHdu}`].clim;
+    const values = { "vmin" : renderedClim[0], "vmax": renderedClim[1] };
+    const climSettings = ["vmin", "vmax"].map((label) => {
+        return `<vscode-text-field type="text" id="${label}" label="${label}" 
+        value="${values?.[label].toFixed(2)}" onchange="updateClim()"></vscode-text-field>`;
+    }).join('');
+
+    const resetButton = `<vscode-button appearance="secondary" onclick="resetClim()">Reset</vscode-button>`;
+
+    climInput.innerHTML = climSettings + resetButton;
+    // -------- End of clim input -------- //
     
     // Add an event listener to the search input
     searchInput.addEventListener('input', function() {
@@ -169,13 +183,14 @@ window.addEventListener('message', async event => {
 
     if (message.command === 'updateImage') {
         await updateImageContent(message.data);
-        setLoading(false)
+        if (message.reason !== "climChanged") updateClimInputFields(message.data);
+        setLoading(false);
         attachFigureResizeObserver();
     }
 
     if (message.command === 'updateTheme') {
         await updateTheme(message.data);
-        attachFigureResizeObserver()
+        attachFigureResizeObserver();
     }
 });
 
@@ -212,6 +227,32 @@ async function updateImageContent(data) {
             document.body.appendChild(newScript);
         });
     }
+
+    return;
+}
+
+async function updateClimInputFields(data) {
+    /**
+     * This function updates the input vmin & vmax input fields
+     * 
+     * @param {string} data - JSON stringified object containing the file, selectedHdu, and options
+     * 
+     * @returns {void}
+     *  
+    */
+
+    // Parse the data
+    const { file, selectedHdu, _ } = JSON.parse(data);
+
+    // Update input fields
+    const renderedClim = file[`hdu${selectedHdu}`].clim;
+    const values = { "vmin" : renderedClim[0], "vmax": renderedClim[1] };
+
+    const vminEl = document.getElementById("vmin")
+    const vmaxEl = document.getElementById("vmax")
+
+    vminEl.value = values.vmin.toFixed(2);
+    vmaxEl.value = values.vmax.toFixed(2);
 
     return;
 }
@@ -267,8 +308,8 @@ function initSectionSizes() {
 
     optionsSection.style.width = '40%'; // default width
     headerInfoSection.style.width = '60%'; // remaining width
-    headerInfoContainer.style.height = '40%'; // default height
-    imageSection.style.height = '50%'; // remaining height
+    headerInfoContainer.style.height = '47%'; // default height
+    imageSection.style.height = '43%'; // remaining height
 
     requestAnimationFrame(() => saveSectionSizesInPx())
 }

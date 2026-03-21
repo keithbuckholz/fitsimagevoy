@@ -115,6 +115,10 @@ class CustomEditorProvider implements vscode.CustomReadonlyEditorProvider {
 
                         <vscode-radio-group id="scaleSelector"></vscode-radio-group>
 
+                        <vscode-divider role="presentation"></vscode-divider>
+                        
+                        <div id="climInput" style="display: flex; gap: 8px;"></div>
+
                     </div>
 
                     <div class="section-divider vertical" data-resize="optionsSection|headerInfoSection"></div>
@@ -163,7 +167,7 @@ class CustomEditorProvider implements vscode.CustomReadonlyEditorProvider {
                     // Post a message to VS Code
                     vscode.postMessage({
                         command: 'colormapChanged',
-                        newColormap: event
+                        newColormap: event,
                     });
                 }
 
@@ -173,7 +177,88 @@ class CustomEditorProvider implements vscode.CustomReadonlyEditorProvider {
                     // Post a message to VS Code
                     vscode.postMessage({
                         command: 'scaleChanged',
-                        newScale: event
+                        newScale: event,
+                        newClim: { vmin: null, vmax: null } // tells backend to use auto/matplotlib defaults
+                    });
+                }
+                
+                // Validate number pattern using regex
+                const numberPattern = /^[+-]?(?:\\d+\\.?\\d*|\\.\\d+)(?:[eE][+-]?\\d+)?$/;
+
+                function parseValidNumber(text) {
+                    if (!numberPattern.test(text)) return null;
+                    const n = Number(text);
+                    return Number.isFinite(n) ? n : null;
+                }
+
+                function validateNumbers() {
+
+                    const vminEl = document.getElementById('vmin');
+                    const vmaxEl = document.getElementById('vmax');
+
+                    const vminRaw = vminEl.value.trim();
+                    const vmaxRaw = vmaxEl.value.trim();
+
+                    const vmin = vminRaw === '' ? null : parseValidNumber(vminRaw);
+                    const vmax = vmaxRaw === '' ? null : parseValidNumber(vmaxRaw);
+
+                    const vminHasValue = vminRaw !== '';
+                    const vmaxHasValue = vmaxRaw !== '';
+
+                    let vminInvalid = vminHasValue && vmin === null;
+                    let vmaxInvalid = vmaxHasValue && vmax === null;
+
+                    const bothValidNumbers = vmin !== null && vmax !== null;
+                    const rangeInvalid = bothValidNumbers && !(vmin < vmax);
+
+                    if (rangeInvalid) {
+                        vminInvalid = true;
+                        vmaxInvalid = true;
+                    }
+
+                    const applyInvalid = (el, isInvalid) => {
+                        el.toggleAttribute('invalid', isInvalid);
+                        if (isInvalid) {
+                            el.setAttribute('aria-invalid', 'true');
+                        } else {
+                            el.removeAttribute('aria-invalid');
+                        }
+                    };
+
+                    applyInvalid(vminEl, vminInvalid);
+                    applyInvalid(vmaxEl, vmaxInvalid);
+
+                    if (!bothValidNumbers || rangeInvalid) return;
+
+                    return {vmin, vmax};
+                }
+
+                // Update the clim value in the options
+                function updateClim() {
+
+                    const clim = validateNumbers()
+
+                    if (!clim) return;
+
+                    // If number are valid, update as usual
+                    setLoading(true);
+                    // Post a message to VS Code
+                    vscode.postMessage({
+                       command: 'climChanged',
+                       newClim: clim
+                    });
+                }
+
+                function resetClim() {
+                    const vminEl = document.getElementById('vmin');
+                    const vmaxEl = document.getElementById('vmax');
+                    if (vminEl) vminEl.value = '';
+                    if (vmaxEl) vmaxEl.value = '';
+                    
+                    setLoading(true);
+                    vscode.postMessage({
+                        command: 'climReset',
+                        newClim: { vmin: null, vmax: null } // tells backend to use auto/matplotlib defaults
                     });
                 }
 
@@ -252,7 +337,6 @@ class CustomEditorProvider implements vscode.CustomReadonlyEditorProvider {
           });
         }
     
-
         // update when the user changes theme
         const themeListener = vscode.window.onDidChangeActiveColorTheme(() => updateTheme());
         webviewPanel.onDidDispose(() => themeListener.dispose());
@@ -269,7 +353,7 @@ class CustomEditorProvider implements vscode.CustomReadonlyEditorProvider {
                 options: document.options
             });
 
-        const scheduleImageRender = () => {
+        const scheduleImageRender = (reason: string) => {
             latestRenderRequestId += 1;
             const requestId = latestRenderRequestId;
 
@@ -289,6 +373,7 @@ class CustomEditorProvider implements vscode.CustomReadonlyEditorProvider {
                 await webviewPanel.webview.postMessage({
                     command: 'updateImage',
                     data: buildImagePayload(),
+                    reason: reason,
                 });
             }, COALESCE_MS);
         }
@@ -306,29 +391,43 @@ class CustomEditorProvider implements vscode.CustomReadonlyEditorProvider {
 
                         updateTheme();
 
-                        const documentDataJson = JSON.stringify({
-                            file: document.file,
-                            selectedHdu: document.selectedHdu,
-                            options: document.options,
-                        });
-
                         await webviewPanel.webview.postMessage({
                             command: 'updateHeaderInfo', 
-                            data: documentDataJson 
+                            data: buildImagePayload() 
                         });
+
                         break;
+
                     // Handle colormap change
                     case 'colormapChanged':
                         document.options.colormap = message.newColormap;
 
-                        scheduleImageRender(); 
+                        scheduleImageRender(message.command); 
 
                         break;
                     // Handle scale change
                     case 'scaleChanged':
                         document.options.scale = message.newScale;
+                        document.options.clim = message.newClim;
 
-                        scheduleImageRender();
+                        scheduleImageRender(message.command);
+
+                        break;
+
+                    // Handle clim change
+                    case 'climChanged':
+                        document.options.clim = message.newClim;
+                        
+                        scheduleImageRender(message.command);
+
+                        break;
+
+                    // Handle clim reset
+
+                    case 'climReset':
+                        document.options.clim = message.newClim;
+
+                        scheduleImageRender(message.command);
 
                         break;
                 }
@@ -357,9 +456,11 @@ class CustomDocument implements vscode.CustomDocument {
         const configuration = vscode.workspace.getConfiguration('fitsimagevoy');
         const defaultColormap = configuration.get('defaultColormap', 'viridis');
         const defaultScale = configuration.get('defaultScale', 'linear');
+        const defaultClim = configuration.get('defaultClim', { vmin: null, vmax: null })
         this.options = {
             'colormap': defaultColormap,
             'scale': defaultScale,
+            'clim': defaultClim,
         }; 
     }
     get uri(): vscode.Uri {
@@ -398,7 +499,7 @@ class CustomDocument implements vscode.CustomDocument {
          * @returns void
          */
         
-        this._file = await this.generateImageFromFits(this._uri.fsPath, this._options['colormap'], this._options['scale']);
+        this._file = await this.generateImageFromFits(this._uri.fsPath, this._options['colormap'], this._options['scale'], this._options['clim']);
 
         // Initialize a variable to store the selected element
         this._selectedHdu = 0;
@@ -414,7 +515,7 @@ class CustomDocument implements vscode.CustomDocument {
         }
     }
 
-    async generateImageFromFits(fitsFilePath: string, colormap: string, scale: string): Promise<any> {
+    async generateImageFromFits(fitsFilePath: string, colormap: string, scale: string, clim: Object): Promise<any> {
         /**
          * This function reads a FITS file and returns the image data, headers and html.
          * It connects with python to run this process.
@@ -436,14 +537,18 @@ class CustomDocument implements vscode.CustomDocument {
             } else {
                 command = pythonInterpreterPath;
             }
-        
+            
+            // Parse vmin and vmax args
+            const climArgs = (['vmin', 'vmax'] as const).flatMap((k) => (clim?.[k] === null ? [] : [`--${k}`, String(clim?.[k])]));
+            const climArgsStr = climArgs.map((s) => JSON.stringify(s)).join(' ');
+
             //const command = osvar === 'win32' ? 'python' : 'python3';
             //const activationCommand = 'source /sdf/group/rubin/sw/w_latest/loadLSST.bash';
             const activationCommand = '';
             const pythonScriptPath = path.join(__dirname, 'python', 'generate_image.py');
             const combinedCommand = `
                 ${activationCommand} > /dev/null 2>&1 &&
-                ${command} ${pythonScriptPath} "${fitsFilePath}" ${colormap} ${scale}
+                ${command} ${pythonScriptPath} "${fitsFilePath}" ${colormap} ${scale} ${climArgsStr}
             `;
 
             // Combine activation and Python commands

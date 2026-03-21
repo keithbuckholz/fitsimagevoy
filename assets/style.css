@@ -71,6 +71,24 @@ h1, h2 {
     margin-top: 0;
 }
 
+#vmin,
+#vmax {
+    width: 25%;
+}
+
+#vmin[invalid]::part(control),
+#vmax[invalid]::part(control) {
+  border-color: red;
+  background-color: #F08080;
+  color: black
+}
+
+#vmin[invalid],
+#vmax[invalid] {
+  outline: 1px solid red;
+  outline-offset: 1px;
+}
+
 #headerInfoSection {
     display: flex;
     flex-direction: column;

@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 import numpy as np
 import mpld3
+import argparse
+from typing import Any
 
 def convert_header_to_dict(header):
     """Convert a Header object to a dictionary
@@ -59,7 +61,7 @@ def format_func(value, string):
     
     return formatted_str
 
-def generate_file(fits_file, colormap, scale):
+def generate_file(fits_file, colormap, scale, vmin=None, vmax=None):
     """Read fits file and return headers and a Matplotlib plot
     
     Parameters
@@ -94,34 +96,46 @@ def generate_file(fits_file, colormap, scale):
                     divisor = min(header['NAXIS1']/4, header['NAXIS2']/4)
                     plt.figure(figsize=(header['NAXIS1'] / divisor, header['NAXIS2'] / divisor))
 
+                    # Begin gathering image keyword arguments
+                    img_kwargs: dict[str, Any] = {"origin": "lower"}
+
                     # Set colormap
                     if colormap == 'aips0':
-                        cmap = plt.get_cmap('nipy_spectral', 8)
+                        img_kwargs["cmap"] = plt.get_cmap('nipy_spectral', 8)
                     else:
-                        cmap = colormap
+                        img_kwargs["cmap"] = colormap
+                    
+                    # Set vmin & vmax
+                    if vmin is not None:
+                        img_kwargs["vmin"] = vmin
+                    if vmax is not None:
+                        img_kwargs["vmax"] = vmax
 
                     # Plot the image with the given scale
                     if scale == 'linear':
-                        plt.imshow(data, cmap=cmap, origin='lower')
+                        plt.imshow(data, **img_kwargs)
                     elif scale == 'logarithmic':
                         offset_data = data + np.abs(np.nanmin(data))
                         min_value = np.log(np.min(offset_data[offset_data > 0]))
                         offset_data[offset_data <= 0] = 1e-17
-                        plt.imshow(np.log(offset_data), cmap=cmap, origin='lower', vmin=min_value)
+                        if "vmin" not in img_kwargs:
+                            img_kwargs["vmin"] = min_value
+                        plt.imshow(np.log(offset_data), **img_kwargs)
                     elif scale == 'sqrt':
                         offset_data = data + np.abs(np.nanmin(data))
                         offset_data[offset_data <= 0] = 1e-17
-                        plt.imshow(np.sqrt(offset_data), cmap=cmap, origin='lower')
+                        plt.imshow(np.sqrt(offset_data), **img_kwargs)
                     elif scale == 'power':
                         offset_data = data + np.abs(np.nanmin(data))
                         offset_data[offset_data <= 0] = 1e-17
-                        plt.imshow(offset_data**1.5, cmap=cmap, origin='lower')
+                        plt.imshow(offset_data**1.5, **img_kwargs)
                     elif scale == 'squared':
                         offset_data = data + np.abs(np.nanmin(data))
                         offset_data[offset_data <= 0] = 1e-17
-                        plt.imshow(offset_data**2, cmap=cmap, origin='lower')
+                        plt.imshow(offset_data**2, **img_kwargs)
 
                     plt.colorbar(orientation='horizontal', format="{x:.1e}")
+                    clim = plt.gci().get_clim() # pyright: ignore[reportOptionalMemberAccess]
 
                     # Add tag with image options
                     caption = f"loaded image options: ( {colormap} - {scale} )"
@@ -142,6 +156,7 @@ def generate_file(fits_file, colormap, scale):
                         'header': header,
                         'encoded_image': True,
                         'html_plot': html_plot,
+                        'clim': clim,
                     }
                 except:
                     # If no image is present in the HDU, only add the header
@@ -149,6 +164,7 @@ def generate_file(fits_file, colormap, scale):
                         'header': header,
                         'encoded_image': False,
                         'html_plot': None,
+                        'clim': None,
                     }
 
             else:
@@ -157,24 +173,35 @@ def generate_file(fits_file, colormap, scale):
                     'header': header,
                     'encoded_image': False,
                     'html_plot': None,
+                    'clim': None,
                 }
 
     # Return the result as a JSON string
     return json.dumps(result)
 
 if __name__ == "__main__":
-    # Check if the correct number of command-line arguments is provided
-    if len(sys.argv) != 4:
-        print("Usage: python generate_image.py <fits_file>")
-        sys.exit(1)
 
-    fits_file = sys.argv[1]
-    colormap = sys.argv[2]
-    scale = sys.argv[3]
+    # setup argparser and let it throw errors for missing arguments
+    parser = argparse.ArgumentParser()
+    parser.add_argument("fits_file", type=str)
+    parser.add_argument("colormap", type=str)
+    parser.add_argument("scale", type=str)
+    parser.add_argument("--vmin", type=float, default=None, nargs='?')
+    parser.add_argument("--vmax", type=float, default=None, nargs='?')
+    args = parser.parse_args()
+
+    fits_file = args.fits_file
+    colormap = args.colormap
+    scale = args.scale
+    clim = {}
+    if args.vmin is not None:
+        clim["vmin"] = args.vmin
+    if args.vmax is not None:
+        clim["vmax"] = args.vmax
 
     try:
         # Call the function and get the encoded image
-        file = generate_file(fits_file, colormap, scale)
+        file = generate_file(fits_file, colormap, scale, **clim)
         print(file)
     except Exception as e:
         print(f"Error: {e}")
