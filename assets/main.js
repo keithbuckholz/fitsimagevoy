@@ -85,7 +85,7 @@ async function updateHeaderInfo(data) {
     const values = { "vmin" : renderedClim[0], "vmax": renderedClim[1] };
     const climSettings = ["vmin", "vmax"].map((label) => {
         return `<vscode-text-field type="text" id="${label}" label="${label}" 
-        value="${values?.[label].toFixed(2)}" onchange="updateClim()"></vscode-text-field>`;
+        value="${formatClimValue(values?.[label])}" onchange="updateClim()"></vscode-text-field>`;
     }).join('');
 
     const resetButton = `<vscode-button appearance="secondary" onclick="resetClim()">Reset</vscode-button>`;
@@ -158,7 +158,7 @@ function adjustScale() {
     if (mpld3Figure !== null) {
         var bbox = mpld3Figure.getBBox();
         var aspectRatioWidth = (imageSection.clientWidth - 20) / bbox.width ;
-        var aspectRatioHeight = (imageSection.clientHeight - 20) / bbox.height ;
+        var aspectRatioHeight = (imageSection.clientHeight - 40) / bbox.height ;
         var aspectRatio = Math.min(aspectRatioWidth, aspectRatioHeight);
 
         // Apply the scaling transformation
@@ -183,7 +183,7 @@ window.addEventListener('message', async event => {
 
     if (message.command === 'updateImage') {
         await updateImageContent(message.data);
-        if (message.reason !== "climChanged") updateClimInputFields(message.data);
+        updateClimInputFields(message.data);
         setLoading(false);
         attachFigureResizeObserver();
     }
@@ -231,6 +231,12 @@ async function updateImageContent(data) {
     return;
 }
 
+function formatClimValue(value) {
+    if (!Number.isFinite(value)) return '';
+    const abs = Math.abs(value);
+    return abs >= 1000 ? value.toExponential(2) : value.toFixed(2);
+}
+
 async function updateClimInputFields(data) {
     /**
      * This function updates the input vmin & vmax input fields
@@ -251,8 +257,8 @@ async function updateClimInputFields(data) {
     const vminEl = document.getElementById("vmin")
     const vmaxEl = document.getElementById("vmax")
 
-    vminEl.value = values.vmin.toFixed(2);
-    vmaxEl.value = values.vmax.toFixed(2);
+    vminEl.value = formatClimValue(values.vmin);
+    vmaxEl.value = formatClimValue(values.vmax);
 
     return;
 }

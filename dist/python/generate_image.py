@@ -138,8 +138,8 @@ def generate_file(fits_file, colormap, scale, vmin=None, vmax=None):
                     clim = plt.gci().get_clim() # pyright: ignore[reportOptionalMemberAccess]
 
                     # Add tag with image options
-                    caption = f"loaded image options: ( {colormap} - {scale} )"
-                    plt.title(caption)
+                    selected_options = f"loaded image options: ( {colormap} - {scale} - {clim[0]:.02} - {clim[1]:.02})"
+                    plt.title(selected_options)
                     
                     # Make figure background translucent (general theme compatability)
                     fig = plt.gcf()

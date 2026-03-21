@@ -64,6 +64,8 @@ h1, h2 {
     height: 90%;
     margin: 20px;
     overflow-y: scroll;
+    min-width: 10%;
+    max-width: 75%;
 }
 
 #optionsSection h2 {
@@ -73,7 +75,7 @@ h1, h2 {
 
 #vmin,
 #vmax {
-    width: 25%;
+    width: 8em;
 }
 
 #vmin[invalid]::part(control),
@@ -89,6 +91,12 @@ h1, h2 {
   outline-offset: 1px;
 }
 
+#climInput {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
 #headerInfoSection {
     display: flex;
     flex-direction: column;
@@ -96,6 +104,7 @@ h1, h2 {
     margin: 20px;
     width: 60%; /* Adjust to fill the entire height minus any borders or padding */
     overflow-y: auto; /* Enable vertical scrolling if content overflows */
+    min-width: 25%;
 }
 
 #headerInfoHeader {
@@ -126,7 +135,8 @@ h1, h2 {
     align-items: center;
     justify-content: center;
     width: 100%;
-    overflow: hidden
+    overflow: hidden;
+    flex: 1;
 }
 
 #imageLoadingOverlay {

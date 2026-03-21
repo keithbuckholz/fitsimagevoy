@@ -117,7 +117,7 @@ class CustomEditorProvider implements vscode.CustomReadonlyEditorProvider {
 
                         <vscode-divider role="presentation"></vscode-divider>
                         
-                        <div id="climInput" style="display: flex; gap: 8px;"></div>
+                        <div id="climInput"></div>
 
                     </div>
 
