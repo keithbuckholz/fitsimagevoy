@@ -118,6 +118,8 @@ var CustomEditorProvider = class {
                         <vscode-radio-group id="scaleSelector"></vscode-radio-group>
 
                     </div>
+
+                    <div class="section-divider vertical" data-resize="optionsSection|headerInfoSection"></div>
         
                     <!-- Header Info Section -->
                     <div id="headerInfoSection">
@@ -131,7 +133,7 @@ var CustomEditorProvider = class {
                     </div>
                 </div>
         
-                <vscode-divider role="presentation"></vscode-divider>
+                <div class="section-divider horizontal" data-resize="headerInfoContainer|imageSection"></div>
                 
                 <!-- Image Section -->
                 <div id="imageSection">

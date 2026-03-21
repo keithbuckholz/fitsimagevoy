@@ -125,14 +125,11 @@ def generate_file(fits_file, colormap, scale):
 
                     # Add tag with image options
                     caption = f"loaded image options: ( {colormap} - {scale} )"
-                    ax = plt.gca()
-                    ax.text(0.5, -0.1, caption,
-                            transform=ax.transAxes,
-                            ha='center', va='top',
-                            fontsize=14)
+                    plt.title(caption)
                     
                     # Make figure background translucent (general theme compatability)
                     fig = plt.gcf()
+                    ax = plt.gca()
                     fig.patch.set_alpha(0.0)
                     ax.set_facecolor("none")
                     

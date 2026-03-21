@@ -4,6 +4,11 @@
 // It uses the acquireVsCodeApi() function to get a reference to VS Code
 
 let figureResizeObserver = null;
+let isVerticalDivider = null;
+let activeDivider = null;
+let startPos = 0;
+let startSize1 = 0;
+let startSize2 = 0;
 
 async function updateHeaderInfo(data) {
     /**
@@ -14,6 +19,13 @@ async function updateHeaderInfo(data) {
      * 
      * @returns {void} 
      */
+
+    // Set initial section sizes on first document open
+    const optionsSection = document.getElementById('optionsSection')
+
+    if(!optionsSection.style.width) {
+        initSectionSizes()
+    }
 
     // Get a reference to VS Code
     const headerInfoElement = document.getElementById('headerInfo');
@@ -119,7 +131,7 @@ function attachFigureResizeObserver() {
     })
 
     figureResizeObserver.observe(figure);
-    adjustScale()
+    requestAnimationFrame(() => adjustScale());
 }
 
 function adjustScale() {
@@ -243,4 +255,89 @@ function handleSearch(searchInput) {
 function updateTheme(isDark) {
     document.body.classList.toggle('vscode-dark', !!isDark)
     document.body.classList.toggle('vscode-light', !isDark)
+}
+
+function initSectionSizes() {
+
+    // Set initial dimensions on first load (only if not already set)
+    const optionsSection = document.getElementById('optionsSection');
+    const headerInfoSection = document.getElementById('headerInfoSection');
+    const headerInfoContainer = document.getElementById('headerInfoContainer');
+    const imageSection = document.getElementById('imageSection');
+
+    optionsSection.style.width = '40%'; // default width
+    headerInfoSection.style.width = '60%'; // remaining width
+    headerInfoContainer.style.height = '40%'; // default height
+    imageSection.style.height = '50%'; // remaining height
+
+    requestAnimationFrame(() => saveSectionSizesInPx())
+}
+
+function saveSectionSizesInPx() {
+    const optionsSection = document.getElementById('optionsSection');
+    const headerInfoSection = document.getElementById('headerInfoSection');
+    const headerInfoContainer = document.getElementById('headerInfoContainer');
+    const imageSection = document.getElementById('imageSection');
+
+    optionsSection.style.width = optionsSection.getBoundingClientRect().width + 'px';
+    headerInfoSection.style.width = headerInfoSection.getBoundingClientRect().width + 'px';
+    headerInfoContainer.style.height = headerInfoContainer.getBoundingClientRect().height + 'px';
+    imageSection.style.height = imageSection.getBoundingClientRect().height + 'px';
+
+}
+
+// Resizable section by mouse dragging
+document.querySelectorAll('.section-divider').forEach(divider => {
+    divider.addEventListener('mousedown', handleDividerMouseDown);
+});
+
+function handleDividerMouseDown(e) {
+    activeDivider = e.target;
+    activeDivider.classList.add('dragging');
+
+    const [id1, id2] = activeDivider.dataset.resize.split('|');
+    const elem1 = document.getElementById(id1);
+    const elem2 = document.getElementById(id2);
+
+    isVerticalDivider = activeDivider.classList.contains('vertical');
+
+    startPos = isVerticalDivider ? e.clientX : e.clientY;
+    startSize1 = isVerticalDivider ? elem1.offsetWidth : elem1.offsetHeight;
+    startSize2 = isVerticalDivider ? elem2.offsetWidth : elem2.offsetHeight;
+    
+    document.addEventListener('mousemove', handleDividerMouseMove);
+    document.addEventListener('mouseup', handleDividerMouseUp);
+}
+
+function handleDividerMouseMove(e) {
+    if (!activeDivider) return;
+    
+    const [id1, id2] = activeDivider.dataset.resize.split('|');
+    const elem1 = document.getElementById(id1);
+    const elem2 = document.getElementById(id2);
+
+    const cursorPos = isVerticalDivider ? e.clientX : e.clientY;
+    const delta = cursorPos - startPos;
+    
+    if (isVerticalDivider) {
+        const newSize1 = startSize1 + delta;
+        const newSize2 = startSize2 - delta;
+        elem1.style.width = newSize1 + 'px';
+        elem2.style.width = newSize2 + 'px';
+    } else {
+        const newSize1 = startSize1 + delta;
+        const newSize2 = startSize2 - delta;
+        elem1.style.height = newSize1 + 'px';
+        elem2.style.height = newSize2 + 'px';
+    }
+    attachFigureResizeObserver();
+}
+
+function handleDividerMouseUp() {
+    if (activeDivider) {
+        activeDivider.classList.remove('dragging');
+        activeDivider = null;
+    }
+    document.removeEventListener('mousemove', handleDividerMouseMove);
+    document.removeEventListener('mouseup', handleDividerMouseUp);
 }
