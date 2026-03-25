@@ -118,11 +118,11 @@ async function updateHeaderInfo(data) {
 
     // Display the image if it exists, otherwise display placeholder text
     if (file[`hdu${selectedHdu}`].encoded_image) {
-        document.getElementById('imageAndTableContainer').style.display = 'flex';
+        document.getElementById('imageTableDiv').style.display = 'flex';
         document.getElementById('placeholderText').style.display = 'none';
         document.getElementById('imageErrorText').style.display = 'none';
     } else {
-        document.getElementById('imageAndTableContainer').style.display = 'none';
+        document.getElementById('imageTableDiv').style.display = 'none';
         document.getElementById('placeholderText').style.display = 'block';
         document.getElementById('imageErrorText').style.display = 'none';
     }
@@ -353,7 +353,7 @@ window.addEventListener('message', async event => {
         setLoading(false);
         console.log(`Error encountered while rerendering for ${message.reason}.`);
         console.log(message.error);
-        document.getElementById('imageAndTableContainer').style.display = 'none';
+        document.getElementById('imageTableDiv').style.display = 'none';
         document.getElementById('placeholderText').style.display = 'none';
         document.getElementById('imageErrorText').style.display = 'block';
     }
@@ -371,14 +371,14 @@ async function updateImageContent(data) {
     */
 
     // Get a reference to VS Code
-    const imageAndTableContainer = document.getElementById('imageAndTableContainer');
+    const imageTableDiv = document.getElementById('imageTableDiv');
     const imageDiv = document.getElementById('imageDiv');
 
     // Parse the data
     const { file, selectedHdu, _ } = JSON.parse(data);
 
     // Update the image content
-    if (imageAndTableContainer) {
+    if (imageTableDiv) {
         const hduData = file[`hdu${selectedHdu}`];
         const tableObj = hduData?.table;
         const hasTable = !!tableObj && typeof tableObj === 'object' && Object.keys(tableObj).length > 0;
@@ -393,7 +393,7 @@ async function updateImageContent(data) {
             
             if (!document.getElementById('tableDiv')) {
                 // Only make the table/plot divide once
-                imageAndTableContainer.innerHTML = `
+                imageTableDiv.innerHTML = `
                 <!-- Left pane: Plot -->
                 <div id="imageDiv" class="responsive-plot withTable">
                     <!-- Plot goes here -->
@@ -416,7 +416,7 @@ async function updateImageContent(data) {
                 `
 
                 // Re-attach divider event listener to new divider
-                const newDivider = imageAndTableContainer.querySelector('.section-divider');
+                const newDivider = imageTableDiv.querySelector('.section-divider');
                 if (newDivider) {
                     newDivider.addEventListener('mousedown', handleDividerMouseDown);
                 }
@@ -432,7 +432,7 @@ async function updateImageContent(data) {
         } else{
             if (document.getElementById('tableDiv')) {
             // Update the image content
-            imageAndTableContainer.innerHTML = `
+            imageTableDiv.innerHTML = `
             <div id="imageDiv" class="responsive-plot" style="width: 100%">
                 ${file[`hdu${selectedHdu}`].html_plot}
             </div>

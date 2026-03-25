@@ -1,4 +1,4 @@
-import sys
+import sys, os
 from astropy.io import fits
 from astropy.table import Table
 import json
@@ -61,7 +61,20 @@ def format_func(value, string):
     
     return formatted_str
 
-def generate_image(hdu, colormap="viridis", scale="linear", **kwargs):
+def save_fig(fig, save_fn, save_path, dpi=300, **_):
+        """
+        Short helper function to save figures
+        """
+
+        plt.title('')
+        plt.rcParams.update({'font.size': 12})
+        
+        save_full_path = os.path.join(save_path, save_fn)
+        fig.savefig(save_full_path, dpi=dpi)
+
+        plt.close(fig)
+
+def generate_image(hdu, colormap="viridis", scale="linear", save_mode: bool = False, **kwargs):
     """Generate a Matplotlib image for an image HDU.
     
     Parameters
@@ -144,16 +157,19 @@ def generate_image(hdu, colormap="viridis", scale="linear", **kwargs):
     # Make figure background translucent (general theme compatability)
     fig = plt.gcf()
     ax = plt.gca()
-    fig.patch.set_alpha(0.0)
-    ax.set_facecolor("none")
-    
-    # Generate the HTML code for the plot
-    html_plot = mpld3.fig_to_html(fig, figid="mpld3Figure2")
-    plt.close()
 
-    return html_plot, clim
+    if save_mode:
+        save_fig(fig, **kwargs)
+        fig = None
+    else:
+        # Make figure background translucent (general theme compatability)
+        fig.patch.set_alpha(0.0)
+        ax.set_facecolor("none")
 
-def generate_plot_and_table(hdu, x_col: str | None = None, y_col: str | None = None, **kwargs):
+    return fig, clim
+
+def generate_plot_and_table(hdu, x_col: str | None = None, y_col: str | None = None,
+                             save_mode: bool = False, **kwargs):
     """Generate a plot from an HDU table or binary table given x & y column names
     
     Parameters
@@ -230,13 +246,15 @@ def generate_plot_and_table(hdu, x_col: str | None = None, y_col: str | None = N
     selected_options = f"{y_col} vs {x_col}".title()
     ax.set_title(selected_options)
 
-    # Make figure background translucent (general theme compatability)
-    fig.patch.set_alpha(0.0)
-    ax.set_facecolor("none")
+    if save_mode:
+        save_fig(fig, **kwargs)
+        fig = None
+    else:
+        # Make figure background translucent (general theme compatability)
+        fig.patch.set_alpha(0.0)
+        ax.set_facecolor("none")
 
-    html_plot = mpld3.fig_to_html(fig, figid="mpld3Figure2")
-
-    return html_plot, table.to_pandas().to_dict()
+    return fig, table.to_pandas().to_dict()
 
 
 def generate_file(fits_file, **kwargs):
@@ -263,6 +281,9 @@ def generate_file(fits_file, **kwargs):
     
     with fits.open(fits_file, ignore_missing_simple=True) as hdul:
         for i, hdu in enumerate(hdul):
+            if kwargs['save_mode']:
+                if i != kwargs["save_hdu"]:
+                    continue
             # Read in data and header
             header = convert_header_to_dict(hdu.header)
 
@@ -270,19 +291,22 @@ def generate_file(fits_file, **kwargs):
             is_table = isinstance(hdu, (fits.BinTableHDU, fits.TableHDU))
 
             # Assume nothing exists, overwrite with reality where things exist
-            html_plot = None
+            fig = None
             clim = None
             table = None
 
             if is_image:
-                html_plot, clim = generate_image(hdu, **kwargs)
+                fig, clim = generate_image(hdu, **kwargs)
             elif is_table:
-                html_plot, table = generate_plot_and_table(hdu, **kwargs)
+                fig, table = generate_plot_and_table(hdu, **kwargs)
             
-            if html_plot is None:
+            if fig is None:
+                html_plot = None
                 encoded_image = False
             else:
+                html_plot = mpld3.fig_to_html(fig, figid="mpld3Figure2")
                 encoded_image = True
+                plt.close(fig)
 
             result[f'hdu{i}'] = {
                 'header': header,
@@ -310,6 +334,11 @@ if __name__ == "__main__":
     parser.add_argument("--point_size", type=float)
     parser.add_argument("--table_scale_x", type=str)
     parser.add_argument("--table_scale_y", type=str)
+    parser.add_argument("--save_mode", action="store_true")
+    parser.add_argument("--save_hdu", type=int)
+    parser.add_argument("--save_fn", type=str)
+    parser.add_argument("--save_path", type=str)
+    parser.add_argument("--dpi", type=float)
     args = parser.parse_args()
 
     arg_dict = vars(args)

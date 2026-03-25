@@ -60,6 +60,16 @@
             "nameAndIndex"
           ],
           "description": "How HDUs are labeled in the dropdown."
+        },
+        "fitsimagevoy.defaultSavePath": {
+          "type": "string",
+          "default": null,
+          "description": "Default directory to save to when saving quick PNGs."
+        },
+        "fitsimagevoy.defaultDPI": {
+          "type": "number",
+          "default": "300",
+          "description": "Default DPI for quick saved PNGs."
         }
       }
     },

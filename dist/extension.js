@@ -149,9 +149,18 @@ var CustomEditorProvider = class {
                     <div id="imageLoadingOverlay" hidden>
                         <span class="codicon codicon-loading codicon-modifier-spin"></span>
                     </div>
-                    <div id="imageAndTableContainer">
-                        <div id="imageDiv" class="responsive-plot">
-                            ${isImage ? document.file[selected].html_plot : ""}
+                    <div id="imageTableOptionsDiv">
+                        <div id="savePngDiv">
+                            <vscode-button id="savePngButton" appearance="secondary" onclick="savePng()">Save to PNG</vscode-button>
+                            <vscode-text-field type="text" class="saveFields" id="saveFn" value=${path.basename(document.uri.fsPath.replace(/.fit[s]?/gi, ".png"))}>Filename</vscode-text-field>
+                            <vscode-text-field type="text" class="saveFields" id="savePath"  value=${path.dirname(document.uri.fsPath)}>Path</vscode-text-field>
+                            <vscode-text-field type="text" class="saveFields" id="saveDpi" value="300">DPI</vscode-text-field>
+                        </div>
+                        <div class="section-divider vertical" data-resize="savePngDiv|imageTableDiv"></div>
+                        <div id="imageTableDiv">
+                            <div id="imageDiv" class="responsive-plot">
+                                ${isImage ? document.file[selected].html_plot : ""}
+                            </div>
                         </div>
                     </div>
                     <!-- Add your image or placeholder here -->
@@ -326,6 +335,19 @@ var CustomEditorProvider = class {
                         newPlotType: event,
                     });
                 }
+                
+                function savePng() {
+                        const saveFn = document.getElementById("saveFn").value;
+                        const savePath = document.getElementById("savePath").value;
+                        const dpi = document.getElementById("saveDpi").value;
+
+                    vscode.postMessage({
+                        command: 'savePng',
+                        saveFn: saveFn,
+                        savePath: savePath,
+                        dpi: dpi
+                        })
+                }
 
                 // Adjust the scale on page load and whenever the window is resized
                 document.addEventListener('DOMContentLoaded',  () => {
@@ -476,6 +498,13 @@ var CustomEditorProvider = class {
             document.options.plotType = message.newPlotType;
             scheduleImageRender(message.command);
             break;
+          case "savePng":
+            document.options.saveMode = true;
+            document.options.saveFn = message.saveFn;
+            document.options.savePath = message.savePath;
+            document.options.dpi = message.dpi;
+            document.generateImageFromFits(document.uri.fsPath, document.options);
+            break;
         }
       },
       void 0
@@ -504,6 +533,8 @@ var CustomDocument = class {
     const defaultPointSize = configuration.get("defaultPointSize", 1);
     const defaultPlotType = configuration.get("defaultPlotType", "line");
     const hduLabels = configuration.get("hduLabels", "index");
+    const defaultSavePath = configuration.get("defaultSavePath", null);
+    const defaultDpi = configuration.get("defaultDPI", "300");
     this.options = {
       "colormap": defaultColormap,
       "scale": defaultScale,
@@ -512,7 +543,10 @@ var CustomDocument = class {
       "tableScale": defaultTableScale,
       "pointSize": defaultPointSize,
       "plotType": defaultPlotType,
-      "hduLabels": hduLabels
+      "hduLabels": hduLabels,
+      "savePath": defaultSavePath,
+      "saveFn": null,
+      "dpi": defaultDpi
     };
   }
   get uri() {
@@ -560,7 +594,7 @@ var CustomDocument = class {
         command = pythonInterpreterPath;
       }
       const pythonScriptPath = path.join(__dirname, "python", "generate_image.py");
-      const argv = buildPythonArgs(pythonScriptPath, fitsFilePath, options).map((arg) => shellQuote(String(arg))).join(" ");
+      const argv = this.buildPythonArgs(pythonScriptPath, fitsFilePath, options).map((arg) => shellQuote(String(arg))).join(" ");
       command = shellQuote(command);
       const activationCommand = "";
       const combinedCommand = `
@@ -617,27 +651,35 @@ var CustomDocument = class {
       }
     });
   }
+  buildPythonArgs(scriptPath, fitsFilePath, options) {
+    const args = [scriptPath, fitsFilePath];
+    const add = (flag, val) => {
+      if (val !== void 0 && val !== null)
+        args.push(flag, String(val));
+    };
+    add("--colormap", options.colormap);
+    add("--scale", options.scale);
+    add("--vmin", options.clim?.vmin);
+    add("--vmax", options.clim?.vmax);
+    add("--x_col", options.cols?.x);
+    add("--y_col", options.cols?.y);
+    add("--table_scale_x", options.tableScale?.x);
+    add("--table_scale_y", options.tableScale?.y);
+    add("--plot_type", options.plotType);
+    add("--point_size", options.pointSize);
+    add("--save_path", options.savePath);
+    add("--save_fn", options.saveFn);
+    add("--dpi", options.dpi);
+    if (options.saveMode) {
+      args.push("--save_mode");
+      args.push("--save_hdu", this._selectedHdu);
+      this._options.saveMode = false;
+    }
+    return args;
+  }
   dispose() {
   }
 };
-function buildPythonArgs(scriptPath, fitsFilePath, options) {
-  const args = [scriptPath, fitsFilePath];
-  const add = (flag, val) => {
-    if (val !== void 0 && val !== null)
-      args.push(flag, String(val));
-  };
-  add("--colormap", options.colormap);
-  add("--scale", options.scale);
-  add("--vmin", options.clim?.vmin);
-  add("--vmax", options.clim?.vmax);
-  add("--x_col", options.cols?.x);
-  add("--y_col", options.cols?.y);
-  add("--table_scale_x", options.tableScale?.x);
-  add("--table_scale_y", options.tableScale?.y);
-  add("--plot_type", options.plotType);
-  add("--point_size", options.pointSize);
-  return args;
-}
 function activate(context) {
   const pythonInterpreterPath = vscode.workspace.getConfiguration("python").get("defaultInterpreterPath");
   let command = "";
